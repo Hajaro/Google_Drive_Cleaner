@@ -362,3 +362,7 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /Google_Drive_Cleaner/Resources/Settings/appsettings.dev.json
+/Google_Drive_Cleaner/Resources/Settings/appsettings.prod.json
+/Google_Drive_Cleaner/Resources/Settings/GooglePass.cs
+/Google_Drive_Cleaner/Resources/Settings/client_secret_865078874198-mti8hls3uim6gojoo5k5pfhdqpj82h3v.apps.googleusercontent.com.json
+/Google_Drive_Cleaner/Resources/Settings/appsettings.json

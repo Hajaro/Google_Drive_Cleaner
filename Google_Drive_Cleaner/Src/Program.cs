@@ -32,27 +32,44 @@ namespace Google_Drive_Cleaner.Src
                     throw new Exception("Google Drive Worker failed to initialize.");
                 }
 
-                var googleDriveFolders = configuration.GetSection("GoogleDriveSettings:GoogleDriveFolders");
-                if (googleDriveFolders == null || !googleDriveFolders.GetChildren().Any())
+                var googleDriveFoldersSection = configuration.GetSection("GoogleDriveSettings:GoogleDriveFolders");
+                if (googleDriveFoldersSection == null)
                 {
                     Logger.LogFatal("No folders provided to check in configuration.");
                     throw new ArgumentException("No folders provided to check in configuration.");
                 }
 
-                foreach (var folder in googleDriveFolders.GetChildren())
+                var folderValues = googleDriveFoldersSection
+                    .GetChildren()
+                    .Select(c => c.Value)
+                    .Where(v => !string.IsNullOrWhiteSpace(v))
+                    .ToList();
+
+                if (!folderValues.Any() && !string.IsNullOrWhiteSpace(googleDriveFoldersSection.Value))
+                {
+                    folderValues.Add(googleDriveFoldersSection.Value);
+                }
+
+                if (!folderValues.Any())
+                {
+                    Logger.LogFatal("No folders provided to check in configuration (after parsing).");
+                    throw new ArgumentException("No folders provided to check in configuration (after parsing).");
+                }
+
+                foreach (var folderValue in folderValues)
                 {
                     cancelationToken.Token.ThrowIfCancellationRequested();
 
-                    var (exist, folderId) = await googleDriveWorker.DoesFolderExistsAsync(folder.Value!, cancelationToken.Token);
+                    var (exist, folderId) = await googleDriveWorker.DoesFolderExistsAsync(folderValue!, cancelationToken.Token);
                     if (!exist)
                     {
-                        Logger.LogWarning($"Folder: {folder.Value} does not exist in Google Drive.");
+                        Logger.LogWarning($"Folder: {folderValue} does not exist in Google Drive.");
                     }
                     else
                     {
-                        Logger.LogInformation($"Folder: {folder.Value} exists in Google Drive with ID: {folderId}");
-                        var deletedCount = await googleDriveWorker.DeleteContentFromFolderByNameAsync(folder.Value!, cancelationToken.Token);
-                        Logger.LogInformation($"Deleted {deletedCount} items from '{folder.Value}'.");
+                        Logger.LogInformation($"Folder: {folderValue} exists in Google Drive with ID: {folderId}");
+                        var deletedCount = await googleDriveWorker.DeleteContentFromFolderByNameAsync(folderValue!, cancelationToken.Token);
+                        Logger.LogInformation($"Deleted {deletedCount} items from '{folderValue}'.");
                     }
                 }
             }

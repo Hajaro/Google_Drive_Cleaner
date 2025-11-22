@@ -7,6 +7,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.IO;
+using System.Text.Json;
+using System.Text;
+using Google.Apis.Auth.OAuth2.Flows;
+using Google.Apis.Util.Store;
+using System.Threading;
 
 namespace Google_Drive_Cleaner.Src.Workers
 {
@@ -26,19 +32,48 @@ namespace Google_Drive_Cleaner.Src.Workers
             ArgumentNullException.ThrowIfNull(configuration, nameof(configuration));
             var serviceAccKeyPath = configuration["GoogleDriveSettings:ServiceAccountKeyPath"];
             if (string.IsNullOrEmpty(serviceAccKeyPath))
-                throw new ArgumentException("ServiceAccountKey is not provided in configuration.", nameof(configuration));
+                throw new ArgumentException("ServiceAccountKeyPath is not provided in configuration.", nameof(configuration));
 
             if (!File.Exists(serviceAccKeyPath))
                 throw new FileNotFoundException("ServiceAccountKey file not found.", serviceAccKeyPath);
 
-            GoogleCredential googleCredentials;
-            using var stream = new FileStream(serviceAccKeyPath, FileMode.Open, FileAccess.Read);
-            googleCredentials = GoogleCredential.FromStream(stream)
-                .CreateScoped([DriveService.Scope.Drive]);
+            var json = await File.ReadAllTextAsync(serviceAccKeyPath, CancellationToken.None);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            GoogleCredential? googleCredentials = null;
+            UserCredential? userCredential = null;
+
+            if (root.TryGetProperty("type", out var typeProp) && string.Equals(typeProp.GetString(), "service_account", StringComparison.OrdinalIgnoreCase))
+            {
+                googleCredentials = GoogleCredential.FromJson(json)
+                    .CreateScoped(new[] { DriveService.Scope.Drive });
+            }
+            else if (root.TryGetProperty("installed", out _) || root.TryGetProperty("web", out _))
+            {
+                using var ms = new MemoryStream(Encoding.UTF8.GetBytes(json));
+                var clientSecrets = GoogleClientSecrets.Load(ms).Secrets;
+
+                userCredential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
+                    clientSecrets,
+                    new[] { DriveService.Scope.Drive },
+                    "user",
+                    CancellationToken.None,
+                    new FileDataStore("GoogleDriveCleaner.Token", true));
+            }
+            else
+            {
+                throw new InvalidOperationException("Unrecognized credential JSON. Provide a service account key JSON (with \"type\":\"service_account\") or an OAuth client JSON (with \"installed\" or \"web\").");
+            }
+
+            Google.Apis.Http.IConfigurableHttpClientInitializer httpInitializer;
+            if (googleCredentials != null) httpInitializer = googleCredentials;
+            else if (userCredential != null) httpInitializer = userCredential;
+            else throw new InvalidOperationException("Failed to create credentials from provided JSON.");
 
             var driveService = new DriveService(new Google.Apis.Services.BaseClientService.Initializer
             {
-                HttpClientInitializer = googleCredentials,
+                HttpClientInitializer = httpInitializer,
                 ApplicationName = appName
             });
 

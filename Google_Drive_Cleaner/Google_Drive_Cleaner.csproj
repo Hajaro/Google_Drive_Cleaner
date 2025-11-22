@@ -8,6 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Src\API\**" />
+    <EmbeddedResource Remove="Src\API\**" />
+    <None Remove="Src\API\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Google.Apis.Drive.v3" Version="1.71.0.3905" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.9" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.9" />
@@ -17,7 +23,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Src\API\" />
+    <None Update="Resources\Settings\appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\Settings\appsettings.prod.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Resources\Settings\client_secret_865078874198-mti8hls3uim6gojoo5k5pfhdqpj82h3v.apps.googleusercontent.com.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
